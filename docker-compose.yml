@@ -1,0 +1,120 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sheetify
+      POSTGRES_USER: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+      - web
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - internal
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/sheetify
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      RUNNER_URL: http://runner:8001
+      BASE_TOOL_URL: http://localhost/t
+      SECRET_KEY: super-secret
+    depends_on:
+      - db
+      - redis
+    networks:
+      - internal
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend.rule=PathPrefix(`/api`)
+      - traefik.http.middlewares.backend-strip.stripprefix.prefixes=/api
+      - traefik.http.routers.backend.middlewares=backend-strip
+      - traefik.http.services.backend.loadbalancer.server.port=8000
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/sheetify
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      RUNNER_URL: http://runner:8001
+      SECRET_KEY: super-secret
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - internal
+
+  runner:
+    build:
+      context: .
+      dockerfile: runner/Dockerfile
+    environment:
+      SHEETIFY_BASE_IMAGE: sheetify-base:latest
+      TRAEFIK_ENTRYPOINT: web
+      TRAEFIK_NETWORK: web
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - internal
+      - web
+    labels:
+      - traefik.enable=false
+
+  proxy:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost/api
+      NEXT_PUBLIC_TOOL_HOST: http://localhost
+    depends_on:
+      - backend
+    networks:
+      - internal
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.front.rule=PathPrefix(`/`)
+      - traefik.http.services.front.loadbalancer.server.port=3000
+
+  traefik:
+    image: traefik:v2.11
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - web
+      - internal
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
+    driver: bridge
+  web:
+    driver: bridge
