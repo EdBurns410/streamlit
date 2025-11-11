@@ -7,7 +7,7 @@ from docker import errors as docker_errors
 from fastapi import FastAPI, HTTPException
 
 BASE_IMAGE = os.getenv("SHEETIFY_BASE_IMAGE", "sheetify-base:latest")
-TRAEFIK_NETWORK = os.getenv("TRAEFIK_NETWORK", "proxy")
+TRAEFIK_NETWORK = os.getenv("TRAEFIK_NETWORK", "web")
 TRAEFIK_ENTRYPOINT = os.getenv("TRAEFIK_ENTRYPOINT", "web")
 
 client = docker.from_env()
