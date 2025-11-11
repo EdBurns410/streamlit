@@ -58,4 +58,14 @@ Sheetify Studio is a multi-tenant SaaS platform that lets teams upload, build, a
 - Tool uploads are scanned for banned imports before storage.
 - Extend the template catalog by dropping additional apps into `templates/`.
 
+## Testing
+
+Run the backend unit test suite with `pytest` from the repository root:
+
+```bash
+pytest
+```
+
+If you add JavaScript/TypeScript tests in the frontend, execute them with the appropriate `npm` script from the `frontend/` directory (for example, `npm test`).
+
 Happy building!
