@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends iptables curl b
 
 RUN pip install --no-cache-dir streamlit==1.32.2
 
-COPY entrypoint.sh /usr/local/bin/sheetify-entrypoint
+COPY runner/base/entrypoint.sh /usr/local/bin/sheetify-entrypoint
 RUN chmod +x /usr/local/bin/sheetify-entrypoint
 
 WORKDIR /workspace
